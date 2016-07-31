@@ -29,7 +29,7 @@ class Keypad:
 		self.__combination_counts = {}
 
 	def is_vowel(self, key_pressed):
-		if key_pressed in ['A','O','E','I','U']:
+		if key_pressed.upper() in ['A','O','E','I','U']:
 			return True
 		return False
 
@@ -50,74 +50,59 @@ class Keypad:
 
 	def key_exists(self, x, y):
 		#check if the proposed key is one of the blank spots
-		if (x, y) in self.__keys:
-			return True
-		return False
+		return ((x, y) in self.__keys)
 
-	def get_x_knight_moves(self, x, y, x_offset):
+	#method to rturn if a move if valid , given the axis and number of steps to be taken in a direction
+	def is_move_valid(self, x, y, axis, steps):
 		all_moves = []
-		direction = 1
-		if x_offset<0:
-			direction=-1
-		 
-		x_offset = x_offset+direction
 
-		for x1 in range (x,x+x_offset,direction):
-			if not self.key_exists(x1, y):
-				break
-			#add potential end moves
-			if x1==x+x_offset-direction:
-				if self.key_exists(x1,y-1):
-					all_moves.append((x1,y-1))
-				if self.key_exists(x1,y+1):
-					all_moves.append((x1,y+1))
-		return all_moves
+		#validate if each key exists on the keypad
+		if axis=='x':
+			x = x+steps
+		elif axis=='y':
+			y = y+steps
+		else:
+			raise ValueError("Move is not valid, only 'x' or 'y' are valid axis", axis)
 
-	def get_y_knight_moves(self, x, y, y_offset):
-		all_moves = []
-		direction = 1
-		if y_offset<0:
-			direction=-1
-			
-		y_offset = y_offset+direction
+		if not self.key_exists(x, y):
+				return False
+		return True
+
+	def add_move_if_valid(self, all_moves, x, y, axis, steps):
+		if self.is_move_valid(x, y, axis, steps):
+			if axis=='x':
+				all_moves.append((x+steps, y))
+			if axis=='y':
+				all_moves.append((x, y+steps))
 	
-		for y1 in range (y,y+y_offset, direction):
-			if not self.key_exists(x, y1):
-				break
-			#add potential end moves
-			if y1==y+y_offset-direction:
-				if self.key_exists(x-1,y1):
-					all_moves.append((x-1,y1))
-				if self.key_exists(x+1,y1):
-					all_moves.append((x+1,y1))
-		return all_moves
-
 	#function to return all the postions that you could possibly move to in a knight fashion
 	def get_all_knight_moves(self,x, y):
-		#all keys need to be checed in the knight move to validate the move
+		#all keys need to be checked in the knight move to validate the move
 		all_moves=[]
-		#2 moves vertically up and 2 moves horizontally on either side
-		for move in self.get_y_knight_moves(x,y,-2):
-			all_moves.append(move)
+		# total of 8 different moves
+		if self.is_move_valid(x, y, 'x', -2):
+			self.add_move_if_valid(all_moves, x-2, y, 'y', -1)
+			self.add_move_if_valid(all_moves, x-2, y, 'y', 1)
+			
+		if self.is_move_valid(x, y, 'x', 2):
+			self.add_move_if_valid(all_moves, x+2, y, 'y', -1)
+			self.add_move_if_valid(all_moves, x+2, y, 'y', 1)
 
-		#2 moves vertically down and 2 moves horizontally on either side
-		for move in self.get_y_knight_moves(x,y,2):
-			all_moves.append(move)
 
-		#2 moves horizontally left and 2 moves vertically up or down
-		for move in self.get_x_knight_moves(x,y,-2):
-			all_moves.append(move)
+		if self.is_move_valid(x, y, 'y',-2):
+			self.add_move_if_valid(all_moves, x, y-2, 'x', -1)
+			self.add_move_if_valid(all_moves, x, y-2, 'x', 1)
 
-		#2 moves horizonstally right and 2 moves verically up or down
-		for move in self.get_x_knight_moves(x,y,2):
-			all_moves.append(move)
+		if self.is_move_valid(x, y, 'y',2):
+			self.add_move_if_valid(all_moves, x, y+2, 'x', -1)
+			self.add_move_if_valid(all_moves, x, y+2, 'x', 1)
 
 		return all_moves
 
 	def find_no_combinations_from_key(self, x, y, current_seq, vowel_count):
 		key_pressed = self.__keys[(x,y)]
 
-		## no combinations here or from here onwards if the vowel count exceeds two
+		# no of combinations is 0 if the vowel count exceeds two in the current given string
 		key_is_a_vowel = self.is_vowel(key_pressed) 
 		if key_is_a_vowel:
 			vowel_count = vowel_count+1
@@ -127,15 +112,16 @@ class Keypad:
 		#if the sequence is 10 keys long, this forms a valid sequence
 		new_seq = current_seq+key_pressed
 		if (len(new_seq)==10):
+			#add to cache the vowel count
 			self.add_processed_count(key_pressed, len(new_seq), vowel_count, 1)
 			return 1
 		
-		##otherwise check if there is a cached value 
+		#otherwise check if there is a cached value 
 		combination_count = self.check_preprocessed_count(key_pressed, len(new_seq),vowel_count)
 		if combination_count is not None:
 			return combination_count
 
-		#otherwise this is a valid prefix
+		#otherwise this is a valid prefix, with no cache value
 		combination_count = 0
 		#check all possible neighbours by a knight move
 		neighbour_knight_coords = self.get_all_knight_moves(x, y)
@@ -143,7 +129,8 @@ class Keypad:
 			neighbour_x = move[0]
 			neighbour_y = move[1]
 			combination_count = combination_count+self.find_no_combinations_from_key(neighbour_x, neighbour_y, new_seq, vowel_count)
-		
+
+		#add to cache after finding the number of combinations from a given prefix
 		self.add_processed_count(key_pressed, len(new_seq), vowel_count, combination_count)
 		
 		return combination_count
