@@ -6,7 +6,7 @@ class Keypad:
 	HEIGHT = 4
 
 	def __init__(self):
-		##initialise all keypad values explictly (including nulls)
+		##initialise all keypad values explictly
 		self.__keys = {}
 		self.__keys[(0,0)] = 'A'
 		self.__keys[(0,1)] = 'F'
@@ -29,9 +29,7 @@ class Keypad:
 		self.__combination_counts = {}
 
 	def is_vowel(self, key_pressed):
-		if key_pressed.upper() in ['A','O','E','I','U']:
-			return True
-		return False
+		return (key_pressed.upper() in ['A','O','E','I','U'])
 
 	#check to see if the combination has already been computed any count
 	def check_preprocessed_count(self, key_pressed, seq_len, vowel_count):
@@ -48,10 +46,6 @@ class Keypad:
 		if key not in self.__combination_counts:
 			self.__combination_counts[key] = no_combinations
 
-	def key_exists(self, x, y):
-		#check if the proposed key is one of the blank spots
-		return ((x, y) in self.__keys)
-
 	#method to rturn if a move if valid , given the axis and number of steps to be taken in a direction
 	def is_move_valid(self, x, y, axis, steps):
 		all_moves = []
@@ -64,7 +58,7 @@ class Keypad:
 		else:
 			raise ValueError("Move is not valid, only 'x' or 'y' are valid axis", axis)
 
-		if not self.key_exists(x, y):
+		if (x,y) not in self.__keys:
 				return False
 		return True
 
@@ -76,7 +70,9 @@ class Keypad:
 				all_moves.append((x, y+steps))
 	
 	#function to return all the postions that you could possibly move to in a knight fashion
-	def get_all_knight_moves(self,x, y):
+	def get_all_knight_moves(self, pos):
+		x = pos[0]
+		y = pos[1]
 		#all keys need to be checked in the knight move to validate the move
 		all_moves=[]
 		# total of 8 different moves
@@ -99,38 +95,36 @@ class Keypad:
 
 		return all_moves
 
-	def find_no_combinations_from_key(self, x, y, current_seq, vowel_count):
-		key_pressed = self.__keys[(x,y)]
+	def find_no_combinations_from_key(self, pos, current_seq, vowel_count):
+		key_pressed = self.__keys[pos]
 
 		# no of combinations is 0 if the vowel count exceeds two in the current given string
 		key_is_a_vowel = self.is_vowel(key_pressed) 
 		if key_is_a_vowel:
-			vowel_count = vowel_count+1
+			vowel_count +=1
 			if vowel_count>2:
 				return 0
 		
-		#if the sequence is 10 keys long, this forms a valid sequence
+		# if the sequence is 10 keys long, this forms a valid sequence
 		new_seq = current_seq+key_pressed
-		if (len(new_seq)==10):
-			#add to cache the vowel count
+		if len(new_seq)==10:
+			# add to cache the vowel count
 			self.add_processed_count(key_pressed, len(new_seq), vowel_count, 1)
 			return 1
 		
-		#otherwise check if there is a cached value 
+		# otherwise check if there is a cached value 
 		combination_count = self.check_preprocessed_count(key_pressed, len(new_seq),vowel_count)
 		if combination_count is not None:
 			return combination_count
 
-		#otherwise this is a valid prefix, with no cache value
+		# otherwise this is a valid prefix, with no cache value
 		combination_count = 0
-		#check all possible neighbours by a knight move
-		neighbour_knight_coords = self.get_all_knight_moves(x, y)
+		# check all possible neighbours by a knight move
+		neighbour_knight_coords = self.get_all_knight_moves(pos)
 		for move in neighbour_knight_coords:
-			neighbour_x = move[0]
-			neighbour_y = move[1]
-			combination_count = combination_count+self.find_no_combinations_from_key(neighbour_x, neighbour_y, new_seq, vowel_count)
+			combination_count +=self.find_no_combinations_from_key(move, new_seq, vowel_count)
 
-		#add to cache after finding the number of combinations from a given prefix
+		# add to cache after finding the number of combinations from a given prefix
 		self.add_processed_count(key_pressed, len(new_seq), vowel_count, combination_count)
 		
 		return combination_count
@@ -139,13 +133,13 @@ class Keypad:
 		total_combinations = 0
 		for x in range (0, Keypad.WIDTH):
 			for y in range(0, Keypad.HEIGHT):
-				#exceptions for blank key
+				# where there is a valid key for this position
 				if (x,y) in self.__keys:
-					total_combinations = total_combinations+my_keypad.find_no_combinations_from_key(x,y,'',0)
+					total_combinations +=my_keypad.find_no_combinations_from_key((x,y),'',0)
 
 		return total_combinations
 
 my_keypad = Keypad()
 start_time = time.time()
-print my_keypad.find_all_combinations()
+print ("Total combinations: %s" % my_keypad.find_all_combinations())
 print("---  Execution Time: %s seconds ---" % (time.time() - start_time))
